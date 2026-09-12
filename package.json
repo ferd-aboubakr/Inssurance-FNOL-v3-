@@ -2,13 +2,13 @@
   "name": "ambientops-fnol-copilot",
   "version": "0.1.0",
   "private": true,
+  "type": "module",
   "scripts": {
     "dev": "next dev",
     "build": "next build",
     "lint": "eslint .",
-    "test": "npm run test:member1 && npm run test:member2",
-    "test:member1": "tsx --test tests/agent-core.test.ts tests/business-rules.test.ts tests/claims.test.ts",
-    "test:member2": "vitest run tests/exa-adapter.test.ts tests/policy-and-ambiguous.test.ts tests/transcription.test.ts"
+    "test": "vitest run",
+    "typecheck": "tsc --noEmit"
   },
   "dependencies": {
     "@copilotkit/react-core": "^1.71.1",
@@ -24,11 +24,12 @@
     "@types/node": "^22.0.0",
     "@types/react": "^19.0.0",
     "@types/react-dom": "^19.0.0",
+    "@eslint/js": "^9.20.0",
     "eslint": "^9.0.0",
     "eslint-config-next": "^15.5.0",
     "tsx": "^4.0.0",
     "typescript": "^5.0.0",
-    "typescript-eslint": "^8.70.0",
-    "vitest": "^4.1.11"
+    "typescript-eslint": "^8.24.0",
+    "vitest": "^3.2.7"
   }
 }

@@ -1,4 +1,4 @@
-import type { Policy, PolicyLookupResult } from "../../core/types.js";
+import type { Policy, PolicyLookupResult } from "../../core/types";
 
 export interface PolicyAdapter { getPolicy(customerName: string): Promise<PolicyLookupResult>; }
 
