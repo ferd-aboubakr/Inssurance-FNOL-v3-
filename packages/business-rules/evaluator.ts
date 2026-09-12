@@ -1,7 +1,7 @@
 import type {
   Claim,
   ClaimEvidence,
-  Policy,
+  RulePolicy,
   Recommendation,
   RecommendationDecision,
 } from "../../lib/types";
@@ -23,7 +23,7 @@ export interface EvaluationResult {
 
 export function evaluateClaim(
   claim: Claim,
-  policy: Policy,
+  policy: RulePolicy,
   evidence: ClaimEvidence,
   approvalGateOptions: ApprovalGateOptions = {},
 ): EvaluationResult {

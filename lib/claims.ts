@@ -1,28 +1,26 @@
 import { runAgentLoop, type StageRun } from "@/packages/agent-core/loop";
-import type { ClaimEvidence, UserWorkflowConfig } from "@/lib/types";
+import { createServerPolicyAdapter } from "@/src/server";
+import type { AmbiguousAssessment, ExaEvidence, ExaResult, Policy, PolicyLookupResult } from "@/src/core/types";
+import type { ClaimEvidence, RulePolicy, UserWorkflowConfig } from "@/lib/types";
 
 export type ClaimType = "weather" | "auto" | "general";
 export type RecommendationStatus = "approve" | "reject" | "manual_review";
-
-export interface PolicyContext {
-  policyId: string;
-  coverage: string;
-  deductible: number;
-  maxPayout: number;
-}
 
 export interface ExternalFact {
   kind: "weather" | "repair" | "not_required";
   verified: boolean;
   summary: string;
   benchmark?: number;
+  evidence?: ExaEvidence[];
 }
 
 export interface SettlementRecommendation {
   claimType: ClaimType;
   estimatedDamage: number;
-  policy: PolicyContext;
+  policy: Policy;
   externalFact: ExternalFact;
+  /** Provider-neutral transcript assessment obtained during claim evaluation. */
+  ambiguousAssessment?: AmbiguousAssessment;
   recommendedPayout: number;
   status: RecommendationStatus;
   rationale: string;
@@ -36,25 +34,21 @@ export interface EvaluateTranscriptOptions {
   workflowConfig?: UserWorkflowConfig;
   highRiskThreshold?: number;
   isCustomerFacing?: boolean;
+  externalFact?: ExternalFact;
 }
 
-export const MOCK_POLICY: PolicyContext = {
-  policyId: "POL-123",
-  coverage: "Comprehensive",
-  deductible: 500,
-  maxPayout: 10000,
-};
-
-export function getPolicyContext(): PolicyContext {
-  return MOCK_POLICY;
+/** Legacy CopilotKit tool boundary; resolves the same workspace policy as the API. */
+export function getPolicyContext(customerName = "Sarah Martin"): Promise<PolicyLookupResult> {
+  return createServerPolicyAdapter().getPolicy(customerName);
 }
 
 export function verifyExternalFact(claimType: ClaimType, incidentDate: string): ExternalFact {
   if (claimType === "weather") {
     return {
       kind: "weather",
-      verified: true,
-      summary: `Weather event verified for ${incidentDate}: severe rainfall recorded in the reported area.`,
+      verified: false,
+      evidence: [],
+      summary: `Weather verification is unavailable for the reported incident date: ${incidentDate}.`,
     };
   }
   if (claimType === "auto") {
@@ -68,10 +62,33 @@ export function verifyExternalFact(claimType: ClaimType, incidentDate: string): 
   return { kind: "not_required", verified: true, summary: "No external verification required for this claim type." };
 }
 
+/** The only conversion from normalized Exa output into the claim/rules evidence model. */
+export function mapExaResultToExternalFact(result: ExaResult): ExternalFact {
+  const evidence = result.evidence;
+  const verified = result.verified && evidence.length > 0;
+  if (!verified) {
+    return {
+      kind: "weather",
+      verified: false,
+      evidence: [],
+      summary: "Weather evidence is unavailable or could not be verified.",
+    };
+  }
+  const first = evidence[0];
+  return {
+    kind: "weather",
+    verified: true,
+    evidence,
+    summary: first?.snippet ?? first?.title ?? "Weather event verified by external evidence.",
+  };
+}
+
 function parseDamage(transcript: string): number {
   const amount = transcript.match(/(?:\$|about\s+|approximately\s+)([\d,]+(?:\.\d{1,2})?)/i)?.[1]
     ?? transcript.match(/([\d,]+)\s*(?:dollars?|usd|mad)/i)?.[1];
-  return amount ? Number(amount.replace(/,/g, "")) : 3500;
+  if (amount) return Number(amount.replace(/,/g, ""));
+  if (/\bthree\s+thousand(?:\s+dollars?)?\b/i.test(transcript)) return 3000;
+  return 3500;
 }
 
 export function classifyClaim(transcript: string): ClaimType {
@@ -82,13 +99,13 @@ export function classifyClaim(transcript: string): ClaimType {
 
 export function evaluateTranscript(
   transcript: string,
+  policy: Policy,
   incidentDate = "reported incident date",
   options: EvaluateTranscriptOptions = {},
 ): SettlementRecommendation {
-  const policy = getPolicyContext();
   const claimType = classifyClaim(transcript);
   const estimatedDamage = parseDamage(transcript);
-  const externalFact = verifyExternalFact(claimType, incidentDate);
+  const externalFact = options.externalFact ?? verifyExternalFact(claimType, incidentDate);
   const result = runAgentLoop({
     transcript,
     claim: {
@@ -96,14 +113,14 @@ export function evaluateTranscript(
       incidentType: toIncidentType(claimType),
       isCustomerFacing: options.isCustomerFacing ?? true,
     },
-    policy: { deductible: policy.deductible },
+    policy: toRulePolicy(policy),
     evidence: toEvidence(claimType, externalFact),
     workflowConfig: options.workflowConfig ?? { stages: {} },
     approvalGateOptions: { highRiskThreshold: options.highRiskThreshold },
   });
   const { recommendation } = result.evaluation;
   const recommendedPayout = recommendation.decision === "PROCEED"
-    ? Math.min(estimatedDamage - policy.deductible, policy.maxPayout)
+    ? Math.min(estimatedDamage - policy.deductible, policy.coverageLimit)
     : 0;
 
   return {
@@ -120,6 +137,11 @@ export function evaluateTranscript(
     autoExecute: recommendation.autoExecute,
     stages: result.stages,
   };
+}
+
+/** Single boundary from the full workspace policy to the rule-engine projection. */
+function toRulePolicy(policy: Policy): RulePolicy {
+  return { deductible: policy.deductible };
 }
 
 function toIncidentType(claimType: ClaimType): "WEATHER" | "AUTO" | "OTHER" {

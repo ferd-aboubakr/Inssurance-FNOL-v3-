@@ -1,4 +1,4 @@
-import type { TranscriptEvent } from "../../core/types.js";
+import type { TranscriptEvent } from "../../core/types";
 
 export type RecognitionAlternative = { transcript: string };
 export type RecognitionResult = { isFinal: boolean; 0?: RecognitionAlternative };

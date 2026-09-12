@@ -1,4 +1,4 @@
-import type { ExaEvidence, ExaResult } from "../../core/types.js";
+import type { ExaEvidence, ExaResult } from "../../core/types";
 
 type FetchLike = (input: string, init?: RequestInit) => Promise<Response>;
 export type ExaAdapterOptions = { apiKey?: string; fetch?: FetchLike; timeoutMs?: number };

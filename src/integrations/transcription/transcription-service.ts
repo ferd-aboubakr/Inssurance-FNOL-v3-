@@ -1,6 +1,6 @@
-import type { TranscriptEvent } from "../../core/types.js";
-import { FallbackTranscriber } from "./fallback-transcriber.js";
-import { SpeechTranscriber, type BrowserWindow } from "./speech-recognition.js";
+import type { TranscriptEvent } from "../../core/types";
+import { FallbackTranscriber } from "./fallback-transcriber";
+import { SpeechTranscriber, type BrowserWindow } from "./speech-recognition";
 
 /** Coordinates providers while keeping browser API details outside application code. */
 export class TranscriptionService {
