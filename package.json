@@ -6,7 +6,9 @@
     "dev": "next dev",
     "build": "next build",
     "lint": "eslint .",
-    "test": "tsx --test tests/**/*.test.ts"
+    "test": "npm run test:member1 && npm run test:member2",
+    "test:member1": "tsx --test tests/agent-core.test.ts tests/business-rules.test.ts tests/claims.test.ts",
+    "test:member2": "vitest run tests/exa-adapter.test.ts tests/policy-and-ambiguous.test.ts tests/transcription.test.ts"
   },
   "dependencies": {
     "@copilotkit/react-core": "^1.71.1",
@@ -25,6 +27,8 @@
     "eslint": "^9.0.0",
     "eslint-config-next": "^15.5.0",
     "tsx": "^4.0.0",
-    "typescript": "^5.0.0"
+    "typescript": "^5.0.0",
+    "typescript-eslint": "^8.70.0",
+    "vitest": "^4.1.11"
   }
 }
