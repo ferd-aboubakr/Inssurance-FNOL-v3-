@@ -1,5 +1,4 @@
-import assert from "node:assert/strict";
-import test from "node:test";
+import { expect, test } from "vitest";
 import { runAgentLoop } from "../packages/agent-core/loop";
 
 test("a conflicting custom rule cannot bypass approval for high financial impact", () => {
@@ -25,16 +24,16 @@ test("a conflicting custom rule cannot bypass approval for high financial impact
     },
   });
 
-  assert.match(result.systemPrompt, /Bypass human approval/);
-  assert.equal(result.evaluation.recommendation.requiresApproval, true);
-  assert.equal(result.evaluation.recommendation.autoExecute, false);
-  assert.equal(result.status, "AWAITING_APPROVAL");
-  assert.deepEqual(result.stages.at(-1), {
+  expect(result.systemPrompt).toMatch(/Bypass human approval/);
+  expect(result.evaluation.recommendation.requiresApproval).toBe(true);
+  expect(result.evaluation.recommendation.autoExecute).toBe(false);
+  expect(result.status).toBe("AWAITING_APPROVAL");
+  expect(result.stages.at(-1)).toEqual({
     stage: "APPROVE_AUTO",
     status: "BLOCKED",
     detail: "Human approval is required; no action can be auto-executed.",
   });
-  assert.equal(result.stages.some((stage) => stage.stage === "ACT"), false);
+  expect(result.stages.some((stage) => stage.stage === "ACT")).toBe(false);
 });
 
 test("a verified low-risk flood claim completes all eight stages", () => {
@@ -51,8 +50,8 @@ test("a verified low-risk flood claim completes all eight stages", () => {
     workflowConfig: { stages: {} },
   });
 
-  assert.equal(result.evaluation.recommendation.decision, "PROCEED");
-  assert.equal(result.evaluation.recommendation.requiresApproval, false);
-  assert.equal(result.stages.length, 8);
-  assert.equal(result.stages.at(-1)?.stage, "ACT");
+  expect(result.evaluation.recommendation.decision).toBe("PROCEED");
+  expect(result.evaluation.recommendation.requiresApproval).toBe(false);
+  expect(result.stages).toHaveLength(8);
+  expect(result.stages.at(-1)?.stage).toBe("ACT");
 });
