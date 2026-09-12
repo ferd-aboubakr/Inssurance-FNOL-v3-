@@ -18,11 +18,14 @@ const verifyExternalFactTool = tool({
   execute: async ({ claimType, incidentDate }) => verifyExternalFact(claimType, incidentDate),
 });
 
-const InsuranceAgent = new Agent({
+const insuranceAgent = new Agent({
   name: "InsuranceAgent",
   instructions: "You are AmbientOps, an FNOL insurance triage copilot. Read English, French, and Moroccan Arabic transcripts. Always retrieve policy context. For flood or hail claims, verify weather facts. For auto repairs, verify the repair benchmark. Reject if estimated damage is below deductible. Require manual adjuster review if an auto estimate exceeds the benchmark by more than 15%. Otherwise calculate payout as damage minus deductible, capped by policy maximum. Never update a CRM or approve a payout yourself. Present a structured recommendation and request the human agent use renderSettlementCard before any action.",
   tools: [getPolicyContextTool, verifyExternalFactTool],
 });
+
+// Kept initialized for the CopilotKit runtime's tool registry while the live agent binding is added.
+void insuranceAgent;
 
 const runtime = new CopilotRuntime();
 const serviceAdapter = new OpenAIAdapter({ model: process.env.OPENAI_MODEL ?? "gpt-4.1-mini" });
