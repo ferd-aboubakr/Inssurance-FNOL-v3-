@@ -1,3 +1,6 @@
+import { runAgentLoop, type StageRun } from "@/packages/agent-core/loop";
+import type { ClaimEvidence, UserWorkflowConfig } from "@/lib/types";
+
 export type ClaimType = "weather" | "auto" | "general";
 export type RecommendationStatus = "approve" | "reject" | "manual_review";
 
@@ -24,6 +27,15 @@ export interface SettlementRecommendation {
   status: RecommendationStatus;
   rationale: string;
   incidentDate: string;
+  requiresApproval: boolean;
+  autoExecute: boolean;
+  stages: StageRun[];
+}
+
+export interface EvaluateTranscriptOptions {
+  workflowConfig?: UserWorkflowConfig;
+  highRiskThreshold?: number;
+  isCustomerFacing?: boolean;
 }
 
 export const MOCK_POLICY: PolicyContext = {
@@ -68,25 +80,62 @@ export function classifyClaim(transcript: string): ClaimType {
   return "general";
 }
 
-export function evaluateTranscript(transcript: string, incidentDate = "reported incident date"): SettlementRecommendation {
+export function evaluateTranscript(
+  transcript: string,
+  incidentDate = "reported incident date",
+  options: EvaluateTranscriptOptions = {},
+): SettlementRecommendation {
   const policy = getPolicyContext();
   const claimType = classifyClaim(transcript);
   const estimatedDamage = parseDamage(transcript);
   const externalFact = verifyExternalFact(claimType, incidentDate);
+  const result = runAgentLoop({
+    transcript,
+    claim: {
+      estimatedDamage,
+      incidentType: toIncidentType(claimType),
+      isCustomerFacing: options.isCustomerFacing ?? true,
+    },
+    policy: { deductible: policy.deductible },
+    evidence: toEvidence(claimType, externalFact),
+    workflowConfig: options.workflowConfig ?? { stages: {} },
+    approvalGateOptions: { highRiskThreshold: options.highRiskThreshold },
+  });
+  const { recommendation } = result.evaluation;
+  const recommendedPayout = recommendation.decision === "PROCEED"
+    ? Math.min(estimatedDamage - policy.deductible, policy.maxPayout)
+    : 0;
 
-  if (estimatedDamage < policy.deductible) {
-    return { claimType, estimatedDamage, policy, externalFact, recommendedPayout: 0, status: "reject", incidentDate,
-      rationale: `Estimated damage is below the $${policy.deductible.toLocaleString()} deductible; the claim is not payable.` };
-  }
-  if (claimType === "weather" && !externalFact.verified) {
-    return { claimType, estimatedDamage, policy, externalFact, recommendedPayout: 0, status: "manual_review", incidentDate,
-      rationale: "Weather-related claim requires a verified external event before settlement." };
-  }
-  if (claimType === "auto" && externalFact.benchmark && estimatedDamage > externalFact.benchmark * 1.15) {
-    return { claimType, estimatedDamage, policy, externalFact, recommendedPayout: 0, status: "manual_review", incidentDate,
-      rationale: `Estimate exceeds the $${externalFact.benchmark.toLocaleString()} market benchmark by more than 15%; adjuster review is required.` };
-  }
-  const recommendedPayout = Math.min(estimatedDamage - policy.deductible, policy.maxPayout);
-  return { claimType, estimatedDamage, policy, externalFact, recommendedPayout, status: "approve", incidentDate,
-    rationale: `Verified claim. $${estimatedDamage.toLocaleString()} damage less $${policy.deductible.toLocaleString()} deductible.` };
+  return {
+    claimType,
+    estimatedDamage,
+    policy,
+    externalFact,
+    recommendedPayout,
+    status: toStatus(recommendation.decision),
+    rationale: recommendation.reasons[0]
+      ?? `Verified claim. $${estimatedDamage.toLocaleString()} damage less $${policy.deductible.toLocaleString()} deductible.`,
+    incidentDate,
+    requiresApproval: recommendation.requiresApproval,
+    autoExecute: recommendation.autoExecute,
+    stages: result.stages,
+  };
+}
+
+function toIncidentType(claimType: ClaimType): "WEATHER" | "AUTO" | "OTHER" {
+  if (claimType === "weather") return "WEATHER";
+  if (claimType === "auto") return "AUTO";
+  return "OTHER";
+}
+
+function toEvidence(claimType: ClaimType, externalFact: ExternalFact): ClaimEvidence {
+  if (claimType === "weather") return { weatherVerified: externalFact.verified };
+  if (claimType === "auto") return { repairBenchmark: externalFact.benchmark };
+  return {};
+}
+
+function toStatus(decision: "REJECT" | "REVIEW" | "PROCEED"): RecommendationStatus {
+  if (decision === "REJECT") return "reject";
+  if (decision === "REVIEW") return "manual_review";
+  return "approve";
 }
