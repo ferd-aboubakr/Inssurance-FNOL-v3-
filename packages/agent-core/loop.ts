@@ -2,7 +2,7 @@ import type {
   Claim,
   ClaimEvidence,
   LoopStage,
-  Policy,
+  RulePolicy,
   UserWorkflowConfig,
 } from "../../lib/types";
 import {
@@ -23,7 +23,7 @@ export interface StageRun {
 export interface AgentLoopInput {
   transcript: string;
   claim: Claim;
-  policy: Policy;
+  policy: RulePolicy;
   evidence: ClaimEvidence;
   workflowConfig: UserWorkflowConfig;
   approvalGateOptions?: ApprovalGateOptions;

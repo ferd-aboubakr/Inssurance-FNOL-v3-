@@ -9,8 +9,8 @@ export interface Claim {
   isCustomerFacing: boolean;
 }
 
-/** MOCK - only the field required by the deterministic rules. */
-export interface Policy {
+/** Projection of the workspace policy required by deterministic rules. */
+export interface RulePolicy {
   deductible: number;
 }
 

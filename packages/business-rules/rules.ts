@@ -1,7 +1,7 @@
 import type {
   Claim,
   ClaimEvidence,
-  Policy,
+  RulePolicy,
   RecommendationDecision,
 } from "../../lib/types";
 
@@ -18,7 +18,7 @@ export interface RuleFinding {
 
 export function checkDeductible(
   claim: Claim,
-  policy: Policy,
+  policy: RulePolicy,
 ): RuleFinding | undefined {
   if (claim.estimatedDamage < policy.deductible) {
     return {

@@ -1,4 +1,4 @@
-import type { TranscriptEvent } from "../../core/types.js";
+import type { TranscriptEvent } from "../../core/types";
 
 export const FALLBACK_TRANSCRIPT = "Hi, I'm calling because the storm yesterday flooded my basement. The damage is approximately three thousand dollars.";
 
